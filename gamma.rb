@@ -6,7 +6,7 @@ require 'ostruct'
 module Gamma
 
 class Options < ::OptionParser
-    @@version = '0.0.1'
+    @@version = '0.0.2'
     attr_reader :options
 
     def initialize(args)
@@ -16,7 +16,7 @@ class Options < ::OptionParser
         @options = OpenStruct.new
         @options.action = :crypt
         @options.gamma = nil
-        @options.dictionary = nil
+        @options.dictionaries = {}
         init
         parse!(args = args.dup)
         @options.strings = args
@@ -33,7 +33,8 @@ class Options < ::OptionParser
         end
 
         on('-D', '--dictionary DICTIONARY', 'Dictionary') do |d|
-            @options.dictionary = d
+            k, v = d.split(':', 2)
+            @options.dictionaries[k.to_sym] = v
         end
 
         on('-G', '--gamma GAMMA', 'Gamma') do |g|
@@ -60,28 +61,32 @@ private
     DEFAULT = 'абвгдеёжзийклмнопрстуфхцчшщъыьэюя'
 
 public
-    def self.reset
-        @@string = DEFAULT
+    def self.reset(default = DEFAULT)
+        @@string = {:string => default, :gamma => default }
     end
 
 reset
 
     def self.set(value)
-        if value
-            @@string = value
-        else
+        if ! value
             reset
+        elsif value.kind_of?(Hash)
+            value.each do |k, v|
+                @@string[k] = v if @@string[k]
+            end
+        else
+            reset(value)
         end
     end
 
-    def self.get
-        raise 'Dictionary not defined!' unless @@string
-        @@string
+    def self.get(key)
+        raise 'Dictionary not defined for %s!' % key unless @@string[key]
+        @@string[key]
     end
 
-    def self.indexof(value)
+    def self.indexof(value, key)
         char = value[0, 1]
-        index = @@string.index(char)
+        index = @@string[key].index(char)
         raise 'Index for `%s` not defined' % char unless index
         return index + 1
     end
@@ -112,11 +117,11 @@ class Crypt < CryptDecrypt
         c = 0
         @result = ''
         value.split(//).each do |char|
-            index_dict = Dictionary.indexof(char)
+            index_dict = Dictionary.indexof(char, :string)
             gamma_char = @gamma[c, 1]
-            index_gamma = Dictionary.indexof(gamma_char)
-            r = (index_dict + index_gamma) % Dictionary.get.length
-            @result += Dictionary.get[r - 1, 1]
+            index_gamma = Dictionary.indexof(gamma_char, :gamma)
+            r = (index_dict + index_gamma) % Dictionary.get(:string).length
+            @result += Dictionary.get(:string)[r - 1, 1]
             c += 1
         end
     end
@@ -128,12 +133,12 @@ class Decrypt < CryptDecrypt
         c = 0
         @result = ''
         value.split(//).each do |char|
-            index_dict = Dictionary.indexof(char)
+            index_dict = Dictionary.indexof(char, :string)
             gamma_char = @gamma[c, 1]
-            index_gamma = Dictionary.indexof(gamma_char)
-            r = (index_dict - index_gamma) + Dictionary.get.length
-            r %= Dictionary.get.length
-            @result += Dictionary.get[r - 1, 1]
+            index_gamma = Dictionary.indexof(gamma_char, :gamma)
+            r = (index_dict - index_gamma) + Dictionary.get(:string).length
+            r %= Dictionary.get(:string).length
+            @result += Dictionary.get(:string)[r - 1, 1]
             c += 1
         end
     end
@@ -145,7 +150,7 @@ class Crypter
     end
 
     def run
-        Dictionary.set(@opts.dictionary)
+        Dictionary.set(@opts.dictionaries)
         _class = @opts.action == :decrypt ? Decrypt : Crypt
         @opts.strings.each do |string|
             puts _class.new(string, @opts.gamma).to_s

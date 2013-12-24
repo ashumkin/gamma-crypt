@@ -13,14 +13,23 @@ class TestDictionary < Test::Unit::TestCase
     def test_set
         dict = '1qaz'
         Dictionary.set(dict)
-        assert_equal dict, Dictionary.get
-        assert_equal dict.length, Dictionary.get.length
+        assert_equal dict, Dictionary.get(:string)
+        assert_equal dict, Dictionary.get(:gamma)
+        assert_equal dict.length, Dictionary.get(:string).length
+        assert_equal dict.length, Dictionary.get(:gamma).length
+
+        dict2 = '2wsx'
+        Dictionary.set({:gamma => dict2})
+        assert_equal dict, Dictionary.get(:string)
+        assert_equal dict2, Dictionary.get(:gamma)
+        assert_equal dict.length, Dictionary.get(:string).length
+        assert_equal dict2.length, Dictionary.get(:gamma).length
     end
 
     def test_indexof
-        assert_equal 1, Dictionary.indexof('а')
-        assert_equal 7, Dictionary.indexof('ё')
-        assert_equal 33, Dictionary.indexof('я')
+        assert_equal 1, Dictionary.indexof('а', :string)
+        assert_equal 7, Dictionary.indexof('ё', :string)
+        assert_equal 33, Dictionary.indexof('я', :string)
     end
 end
 
